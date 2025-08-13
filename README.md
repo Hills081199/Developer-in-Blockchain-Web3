@@ -1,3 +1,4 @@
+<img src="Developer in Blockchain & Web3.png" alt="Screenshot" width="1500"/>
 # Blockchain Developer Roadmap for Frontend Developers
 
 This repository provides a comprehensive roadmap for frontend developers transitioning into blockchain development, with a focus on Ethereum and Web3 technologies. The roadmap is structured into phases, each with specific objectives, content, practice projects, and resources to guide your learning journey.
