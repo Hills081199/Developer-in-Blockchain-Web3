@@ -66,6 +66,150 @@ Smart contracts operate like a digital vending machine:
 
 **Note**: Traditional escrow relies on flexible human judgment, while smart contract escrow enforces rigid, pre-defined rules. Developers must anticipate all scenarios during coding, as post-deployment changes are impossible without upgradeable contracts.
 
+### Example: SimpleBank Smart Contract
+Below is a Solidity smart contract implementing a basic banking system with deposit and withdrawal functionality, enhanced with events for frontend integration.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SimpleBank {
+    address public owner;
+    mapping(address => uint) public balances;
+
+    event Deposited(address indexed from, uint amount);
+    event Withdrawn(address indexed to, uint amount);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function deposit() public payable {
+        balances[msg.sender] += msg.value;
+        emit Deposited(msg.sender, msg.value);
+    }
+
+    function withdraw(uint amount) public {
+        require(balances[msg.sender] >= amount, "Not enough funds");
+        balances[msg.sender] -= amount;
+        payable(msg.sender).transfer(amount);
+        emit Withdrawn(msg.sender, amount);
+    }
+
+    receive() external payable {
+        deposit();
+    }
+}
+```
+
+**Explanation of SimpleBank**:
+- **State Variables**:
+  - `owner`: Stores the address of the contract deployer.
+  - `balances`: Maps user addresses to their deposited Ether balances.
+- **Functions**:
+  - `deposit()`: Allows users to deposit Ether, updating their balance and emitting a `Deposited` event.
+  - `withdraw(uint amount)`: Allows users to withdraw Ether if sufficient funds are available, emitting a `Withdrawn` event.
+  - `receive()`: Handles direct Ether transfers to the contract by calling `deposit()`.
+- **Events**:
+  - `Deposited(address indexed from, uint amount)`: Logs deposits with the sender's address and amount.
+  - `Withdrawn(address indexed to, uint amount)`: Logs withdrawals with the recipient's address and amount.
+- **Modifier**:
+  - `onlyOwner()`: Restricts certain functions (none in this example) to the contract owner.
+- **Key Features**:
+  - Users can deposit Ether, which is tracked in the `balances` mapping.
+  - Withdrawals are restricted to available funds, ensuring security.
+  - The `receive()` function enables the contract to accept direct Ether transfers.
+  - Events enable real-time tracking and historical querying of transactions.
+
+**Frontend Integration with ReactJS**:
+To demonstrate how the `SimpleBank` contract's events (`Deposited` and `Withdrawn`) are useful, here’s how a ReactJS frontend can interact with them using `ethers.js`.
+
+#### Step 1: Install Dependencies
+Install `ethers.js` for Ethereum blockchain interaction:
+```bash
+npm install ethers
+```
+
+#### Step 2: Connect to the Contract
+Set up the contract connection in your React app using the contract's ABI and address.
+```javascript
+import { ethers } from "ethers";
+import SimpleBankABI from "./SimpleBankABI.json"; // ABI of the SimpleBank contract
+
+const contractAddress = "0x123..."; // Replace with deployed contract address
+
+// Connect to Ethereum provider (e.g., MetaMask)
+const provider = new ethers.providers.Web3Provider(window.ethereum);
+const contract = new ethers.Contract(contractAddress, SimpleBankABI, provider);
+```
+
+#### Step 3: Listen for Real-Time Events
+Use `contract.on` to listen for `Deposited` and `Withdrawn` events in real-time, updating the UI instantly when transactions occur.
+```javascript
+// Listen for Deposited event
+contract.on("Deposited", (from, amount) => {
+  console.log("Deposit event:");
+  console.log("From:", from);
+  console.log("Amount:", ethers.utils.formatEther(amount));
+  // Update UI, e.g., show a notification or refresh balance
+});
+
+// Listen for Withdrawn event
+contract.on("Withdrawn", (to, amount) => {
+  console.log("Withdraw event:");
+  console.log("To:", to);
+  console.log("Amount:", ethers.utils.formatEther(amount));
+  // Update UI, e.g., show transaction history
+});
+```
+**Why This is Useful**:
+- **Real-Time Updates**: The frontend receives immediate notifications of deposits or withdrawals without polling the blockchain.
+- **Efficient**: No need to repeatedly query the contract's state (e.g., `balances`), saving gas and reducing latency.
+- **Dynamic UI**: Events can trigger UI updates, such as showing a "Deposit successful" message or updating a transaction feed.
+
+#### Step 4: Query Historical Events
+Use `queryFilter` to retrieve past `Deposited` or `Withdrawn` events for displaying transaction history.
+```javascript
+async function fetchPastDeposits() {
+  const events = await contract.queryFilter("Deposited", 0, "latest");
+  events.forEach(e => {
+    console.log("From:", e.args.from);
+    console.log("Amount:", ethers.utils.formatEther(e.args.amount));
+    // Add to UI, e.g., populate a transaction history table
+  });
+}
+
+async function fetchPastWithdrawals() {
+  const events = await contract.queryFilter("Withdrawn", 0, "latest");
+  events.forEach(e => {
+    console.log("To:", e.args.to);
+    console.log("Amount:", ethers.utils.formatEther(e.args.amount));
+    // Add to UI
+  });
+}
+```
+**Why This is Useful**:
+- **Historical Data**: Retrieve all past deposits or withdrawals to build a transaction history without maintaining an off-chain database.
+- **Gas Efficiency**: Querying logs is cheaper than reading contract storage repeatedly.
+- **User Experience**: Display a complete transaction log for users, enhancing transparency.
+
+#### Why Events Are Critical for Frontends
+- **Avoid State Reads**: Querying the entire `balances` mapping for all users is expensive and slow. Events provide a targeted, efficient way to track specific actions.
+- **Real-Time Updates**: Events enable instant UI updates without polling, improving responsiveness.
+- **Historical Logs**: Events allow fetching transaction history directly from the blockchain, reducing reliance on external databases.
+- **Scalability**: Events are stored in transaction logs, not contract storage, making them lightweight and cost-effective for tracking.
+
+**Developer Notes**:
+- Ensure the frontend handles provider disconnections (e.g., MetaMask logout) gracefully.
+- Use `indexed` event parameters (like `address indexed from`) for efficient filtering by address.
+- Test event listeners on testnets (e.g., Sepolia) to verify behavior before mainnet deployment.
+- Consider using WebSocket providers for robust real-time event listening in production.
+
 ### Other Examples
 - **Flight Delay Insurance**: If flight data (via oracles) indicates a delay exceeding 2 hours, the contract automatically disburses compensation.
 - **Voting**: Votes are recorded immutably on the blockchain, with results tallied and published automatically, preventing tampering.
