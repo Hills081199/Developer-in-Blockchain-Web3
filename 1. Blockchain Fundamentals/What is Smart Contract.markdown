@@ -18,15 +18,57 @@ Smart contracts operate like a digital vending machine:
 4. **Execution**: If conditions are satisfied, the contract executes the agreed action (e.g., transfers assets).
 
 ## Real-World Examples
-### Escrow Service
-- **Traditional**: Buyer sends money to an escrow company; seller ships the item; escrow releases funds upon confirmation.
-- **Smart Contract**: Funds are locked in a contract. Upon buyer confirmation (or timeout), funds are automatically released to the seller.
+### Traditional Escrow
+**Flow**:
+1. Buyer sends money to an escrow company (a trusted third party).
+2. Seller ships the item to the buyer.
+3. If the buyer confirms receipt, the escrow company releases funds to the seller.
+4. If the buyer does not confirm, the escrow company investigates and manually decides the outcome.
 
-### Insurance
+**Key Points**:
+- **Trust in Humans/Organization**: The escrow company can make discretionary decisions.
+- **Dispute Resolution**: Human review allows flexibility for handling exceptions or fraud.
+- **Slower but Flexible**: Manual processes enable refunds, fraud checks, and custom resolutions.
+
+### Smart Contract Escrow
+**Flow**:
+1. Buyer sends funds to a smart contract on the blockchain.
+2. Seller ships the item to the buyer.
+3. **Case A – Buyer Confirms Receipt**: The smart contract automatically releases funds to the seller.
+4. **Case B – No Confirmation Within Timeout**:
+   - **Option 1**: Funds auto-release to the seller (seller protection).
+   - **Option 2**: Funds auto-refunded to the buyer (buyer protection).
+   - **Option 3**: Funds sent to an on-chain arbitration process (e.g., DAO or oracle-based mediator).
+
+**Key Points**:
+- **No Third Party**: The smart contract holds funds, eliminating the need for an intermediary.
+- **Code is Law**: Only pre-programmed rules are enforced; unhandled scenarios require a new contract.
+- **Automatic Execution**: No human intervention after deployment, ensuring speed and predictability.
+
+**Diagrams**:
+- **Traditional Escrow**:
+  ```
+  [Buyer] --(Funds)--> [Escrow Company] --(Confirmation)--> [Seller receives funds]
+         \                                                     
+          \--(No confirmation)--> [Escrow decides manually]
+  ```
+- **Smart Contract Escrow**:
+  ```
+  [Buyer] --(Funds)--> [Smart Contract] <--(Ships item)-- [Seller]
+        |
+        |--(Confirms receipt)--> [Funds to Seller]
+        |
+        |--(Timeout reached)--> 
+               -> Option 1: Auto-release to Seller
+               -> Option 2: Auto-refunded to Buyer
+               -> Option 3: Arbitration (DAO/Oracle)
+  ```
+
+**Note**: Traditional escrow relies on flexible human judgment, while smart contract escrow enforces rigid, pre-defined rules. Developers must anticipate all scenarios during coding, as post-deployment changes are impossible without upgradeable contracts.
+
+### Other Examples
 - **Flight Delay Insurance**: If flight data (via oracles) indicates a delay exceeding 2 hours, the contract automatically disburses compensation.
-
-### Voting
-- Votes are recorded immutably on the blockchain, with results tallied and published automatically, preventing tampering.
+- **Voting**: Votes are recorded immutably on the blockchain, with results tallied and published automatically, preventing tampering.
 
 ## Components of a Smart Contract
 ### State Variables
