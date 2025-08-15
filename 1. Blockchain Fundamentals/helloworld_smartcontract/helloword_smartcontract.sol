@@ -18,7 +18,7 @@ contract Helloworld {
         return message;
     }
 
-    //
+    //Non-view function: cost gas when call on-chain
     function setMessage(string calldata _newMessage) external {
         message = _newMessage;
         emit MessageUpdated(msg.sender, _newMessage);
