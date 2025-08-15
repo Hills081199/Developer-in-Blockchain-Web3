@@ -1,0 +1,15 @@
+{
+  "name": "developer-in-blockchain-web3",
+  "version": "1.0.0",
+  "description": "<img src=\"Developer in Blockchain & Web3.png\" alt=\"Screenshot\" width=\"1500\"/> # Blockchain Developer Roadmap for Frontend Developers",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ethers": "^6.15.0"
+  }
+}
