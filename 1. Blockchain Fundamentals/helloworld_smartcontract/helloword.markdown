@@ -91,8 +91,8 @@ function setMessage(string calldata _newMessage) external {
      - View `MessageUpdated` event details in the transaction logs.
 
 ## Repository Structure
-- `Helloworld.sol`: The Solidity smart contract file.
-- `README.md`: This file, providing an overview and explanation of the contract.
+- `Helloworld_smartcontract.sol`: The Solidity smart contract file.
+- `helloworld.md`: This file, providing an overview and explanation of the contract.
 
 ## Notes
 - This contract is a beginner-friendly example to learn Solidity concepts like state management, events, and function types.
