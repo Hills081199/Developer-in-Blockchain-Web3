@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract Helloworld {
+contract HelloWorld {
     string private message;
     constructor(string memory initMessage) {
         message = initMessage;
