@@ -18,6 +18,184 @@ The project showcases:
 - **deploy.js**: A Hardhat script to deploy both contracts to the Sepolia testnet.
 - **interact.js**: A Hardhat script to interact with the deployed contracts, fund the `Owner` contract, and test Ether transfers.
 
+## Code Explanation
+
+### Owner.sol
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "./Receiver.sol";
+
+contract Owner {
+    address public receiverAddr; // Address could not receive ETH
+    address payable public receiverPayableAddr; // Address could receive ETH
+
+    constructor(address _receiverAddr, address payable _receiverPayableAddr) {
+        receiverAddr = _receiverAddr;
+        receiverPayableAddr = _receiverPayableAddr;
+    }
+
+    function sendToPayable(uint amount) public {
+        receiverPayableAddr.transfer(amount); // Chỉ address payable mới dùng được .transfer()
+    }
+
+    // function sendToAddress(uint amount) public {
+    //     receiverAddr.transfer(amount); // address không dùng được .transfer()
+    // }
+
+    function sendWithCast(uint amount) public {
+        payable(receiverAddr).transfer(amount); 
+    }
+
+    receive() external payable {}
+}
+```
+- **License and Version**: Uses MIT license and Solidity version `^0.8.20`.
+- **State Variables**:
+  - `receiverAddr`: An `address` type that cannot directly send Ether.
+  - `receiverPayableAddr`: An `address payable` type that can send Ether.
+- **Constructor**: Initializes the two address variables with input parameters.
+- **sendToPayable**: Transfers the specified `amount` of wei to `receiverPayableAddr` using `.transfer()`. Works because `receiverPayableAddr` is `address payable`.
+- **sendToAddress**: Commented out; would fail to compile because `receiverAddr` (an `address`) cannot use `.transfer()`.
+- **sendWithCast**: Attempts to cast `receiverAddr` to `address payable` and transfer Ether. Compiles but may fail at runtime if the target lacks a `receive()` function.
+- **receive()**: Allows the `Owner` contract to receive Ether, enabling the wallet-to-Owner transfer.
+
+### Receiver.sol
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract Receiver {
+    receive() external payable {}
+
+    function getBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+}
+```
+- **License and Version**: Uses MIT license and Solidity version `^0.8.20`.
+- **receive()**: A payable function that allows the contract to accept incoming Ether.
+- **getBalance**: A view function that returns the contract’s balance using `address(this).balance`.
+
+### deploy.js
+```javascript
+const { ethers } = require("hardhat");
+
+async function main() {
+    const [deployer] = await ethers.getSigners();
+    console.log("Deploying contracts with the account:", deployer.address);
+
+    const Receiver = await ethers.getContractFactory("Receiver");
+    const receiver = await Receiver.deploy();
+    await receiver.waitForDeployment();
+    console.log("Receiver deployed to:", await receiver.getAddress());
+
+    const Owner = await ethers.getContractFactory("Owner");
+    const owner = await Owner.deploy(
+        await receiver.getAddress(),
+        await receiver.getAddress()
+    );
+    await owner.waitForDeployment();
+    console.log("Owner deployed to:", await owner.getAddress());
+}
+
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+```
+- **Purpose**: Deploys the `Receiver` and `Owner` contracts to the Sepolia testnet.
+- **Steps**:
+  - Retrieves the deployer’s account using `ethers.getSigners()`.
+  - Deploys the `Receiver` contract.
+  - Deploys the `Owner` contract, passing the `Receiver` contract’s address as both `_receiverAddr` and `_receiverPayableAddr` for demonstration.
+  - Logs the deployed contract addresses.
+- **Error Handling**: Catches and logs errors, exiting with a non-zero code on failure.
+
+### interact.js
+```javascript
+const { ethers } = require("hardhat");
+require("dotenv").config();
+
+const RECEIVER_ADDRESS = "0xc5557fA6bAC775Bc2Ea1f3b6Ce0B89919e22fA34";
+const OWNER_ADDRESS = "0x7A71A025Df15D764Df5A3445ac387716F6B7ce95";
+
+async function main() {
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+        throw new Error("Please set PRIVATE_KEY in .env file");
+    }
+
+    const provider = new ethers.JsonRpcProvider(`https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`);
+    const wallet = new ethers.Wallet(privateKey, provider);
+
+    console.log("Using wallet:", wallet.address);
+
+    const Receiver = await ethers.getContractFactory("Receiver", wallet);
+    const receiver = Receiver.attach(RECEIVER_ADDRESS);
+
+    const Owner = await ethers.getContractFactory("Owner", wallet);
+    const owner = Owner.attach(OWNER_ADDRESS);
+
+    console.log("Connected to contracts:");
+    console.log("- Receiver:", RECEIVER_ADDRESS);
+    console.log("- Owner:", OWNER_ADDRESS);
+
+    const initialReceiverBalance = await provider.getBalance(RECEIVER_ADDRESS);
+    const initialOwnerBalance = await provider.getBalance(OWNER_ADDRESS);
+    const walletBalance = await provider.getBalance(wallet.address);
+
+    console.log("\nInitial balances:");
+    console.log("- Wallet:", ethers.formatEther(walletBalance), "ETH");
+    console.log("- Receiver:", ethers.formatEther(initialReceiverBalance), "ETH");
+    console.log("- Owner contract:", ethers.formatEther(initialOwnerBalance), "ETH");
+
+    const fundAmount = ethers.parseEther("0.02");
+    if (walletBalance < fundAmount) {
+        throw new Error("Not enough ETH in wallet to fund contract");
+    }
+
+    console.log("\nFunding Owner contract with", ethers.formatEther(fundAmount), "ETH...");
+    const fundTx = await wallet.sendTransaction({
+        to: OWNER_ADDRESS,
+        value: fundAmount
+    });
+    await fundTx.wait();
+
+    console.log("Funded successfully!");
+    console.log("New Owner contract balance:", 
+        ethers.formatEther(await provider.getBalance(OWNER_ADDRESS)), "ETH");
+
+    try {
+        console.log("\nTesting sendToPayable...");
+        const amount = ethers.parseEther("0.01");
+        const tx = await owner.sendToPayable(amount);
+        await tx.wait();
+
+        const newBalance = await receiver.getBalance();
+        console.log("Success! New receiver balance:", ethers.formatEther(newBalance), "ETH");
+    } catch (error) {
+        console.log("Error in sendToPayable:", error.message);
+    }
+}
+
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+```
+- **Purpose**: Interacts with the deployed contracts, funds the `Owner` contract, and tests Ether transfers.
+- **Steps**:
+  - Loads environment variables (`PRIVATE_KEY` and `INFURA_API_KEY`) from a `.env` file.
+  - Creates a wallet connected to the Sepolia testnet via Infura.
+  - Attaches to the deployed `Receiver` and `Owner` contracts using their addresses.
+  - Retrieves and logs initial balances for the wallet, `Receiver`, and `Owner` using `provider.getBalance`.
+  - Funds the `Owner` contract with 0.02 ETH using `wallet.sendTransaction`.
+  - Calls `sendToPayable` to transfer 0.01 ETH from `Owner` to `Receiver`.
+  - Retrieves and logs the `Receiver`’s new balance using `receiver.getBalance`.
+- **Error Handling**: Checks for valid private keys and sufficient wallet balance; catches and logs errors.
+
 ## Key Concepts: `address` vs `address payable`
 
 ### 1. `address`
@@ -43,14 +221,14 @@ The project showcases:
 
 The project demonstrates a two-step Ether transfer process:
 1. **Wallet to Owner**:
-   - The `interact.js` script uses the wallet to send 0.02 ETH to the `Owner` contract via a direct transaction (`wallet.sendTransaction`).
-   - The `Owner` contract must have a `receive()` function to accept this Ether, which it does (see `receive() external payable {}` in `Owner.sol`).
-   - This step ensures the `Owner` contract has sufficient Ether to perform subsequent transfers.
+   - The `interact.js` script uses the wallet to send 0.02 ETH to the `Owner` contract via `wallet.sendTransaction`.
+   - The `Owner` contract accepts this Ether because it has a `receive()` function.
+   - This step ensures the `Owner` contract has sufficient Ether for subsequent transfers.
 
 2. **Owner to Receiver**:
    - The `Owner` contract uses its `sendToPayable` function to transfer 0.01 ETH to the `Receiver` contract using `receiverPayableAddr.transfer(amount)`.
    - The `Receiver` contract accepts this Ether because it has a `receive()` function.
-   - The transfer is initiated by calling the `sendToPayable` function in the `interact.js` script.
+   - The transfer is initiated by calling `sendToPayable` in the `interact.js` script.
 
 This flow demonstrates a common pattern where a contract acts as an intermediary, receiving Ether from an external wallet and then forwarding it to another contract.
 
