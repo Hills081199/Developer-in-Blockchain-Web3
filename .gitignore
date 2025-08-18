@@ -42,6 +42,9 @@ yarn-error.log*
 /cache
 /artifacts
 
+**/cache
+**/artifacts
+
 # TypeChain files
 /typechain
 /typechain-types
